@@ -16,9 +16,8 @@ import torch.nn as nn
 from torch.utils.data import Subset
 from torchvision import datasets, transforms
 
-from federa import SwarmNode
-
 from examples.mnist_fedavg.model import accuracy, build_model
+from federa import SwarmNode
 
 
 def _load_partition(client_id: int, num_clients: int) -> Subset:

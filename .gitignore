@@ -5,3 +5,10 @@ __pycache__/
 .mypy_cache
 .pytest_cache/
 *.pyc
+.ruff_cache/
+.claude/
+.venv/
+checkpoints/
+data/
+*.egg-info/
+build/

@@ -65,6 +65,19 @@ class TrainingScheduler:
             weights_to_send = self._privacy_hook(weights_to_send)
 
         compressed = compress_state_dict(weights_to_send, self.settings.quantization.method)
+
+        # Metrics are sent *before* the gradient update: the coordinator may
+        # complete (and close) the round as soon as it counts this client's
+        # GradientUpdate, so metrics must already be recorded by then.
+        await self.channel.send(
+            TrainingMetrics(
+                client_id=self.client_id,
+                round_number=message.round_number,
+                loss=result.loss,
+                accuracy=result.metric,
+                duration_seconds=result.duration_seconds,
+            )
+        )
         await self.channel.send(
             GradientUpdate(
                 client_id=self.client_id,
@@ -74,15 +87,6 @@ class TrainingScheduler:
                 quantization=compressed.method,
                 weights_meta=compressed.meta,
                 loss=result.loss,
-            )
-        )
-        await self.channel.send(
-            TrainingMetrics(
-                client_id=self.client_id,
-                round_number=message.round_number,
-                loss=result.loss,
-                accuracy=result.metric,
-                duration_seconds=result.duration_seconds,
             )
         )
         logger.info(

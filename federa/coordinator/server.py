@@ -103,7 +103,15 @@ class Coordinator:
         await channel.send(self._build_global_model_message())
 
         while True:
-            message = await channel.receive()
+            try:
+                message = await channel.receive()
+            except (WebSocketDisconnect, RuntimeError):
+                # RuntimeError: this connection (possibly this very one) was
+                # just closed by `_run_round` -> `close_all()` because
+                # training finished -- treat it the same as a clean
+                # client-initiated disconnect.
+                return join.client_id
+
             if isinstance(message, GradientUpdate):
                 await self._handle_gradient_update(message)
             elif isinstance(message, Heartbeat):
