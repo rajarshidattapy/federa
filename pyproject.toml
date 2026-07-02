@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "federa"
+version = "0.1.0"
+description = "Decentralized federated learning infrastructure for PyTorch"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "Federa Contributors" }]
+keywords = [
+    "federated-learning",
+    "pytorch",
+    "differential-privacy",
+    "distributed-systems",
+    "machine-learning",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "torch>=2.2",
+    "numpy>=1.26",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "websockets>=12.0",
+    "msgpack>=1.0",
+]
+
+[project.optional-dependencies]
+privacy = ["opacus>=1.4"]
+distributed = ["ray>=2.9"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "mypy>=1.9",
+    "ruff>=0.4",
+]
+all = ["federa[privacy,distributed,dev]"]
+
+[project.urls]
+Homepage = "https://github.com/federa-ai/federa"
+Repository = "https://github.com/federa-ai/federa"
+
+[project.scripts]
+federa-coordinator = "federa.coordinator.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["federa"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["msgpack.*", "opacus.*", "ray.*"]
+ignore_missing_imports = true
