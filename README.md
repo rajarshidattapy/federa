@@ -9,14 +9,6 @@ deploying federated learning systems. Instead of shipping sensitive data to
 a centralized GPU cluster, Federa brings training to where the data lives
 and only ever exchanges privacy-preserving model updates.
 
-Federa is the full Python/PyTorch rewrite of this project's original
-TypeScript/browser prototype, [flockML](./legacy). Where flockML hand-rolled
-matrix math and backpropagation for one fixed feed-forward network, Federa
-is built on `torch.nn.Module`, autograd, and `torch.optim`, so it works with
-*any* model architecture, and drives a real asyncio/FastAPI websocket server
-instead of an in-memory mock. `legacy/` keeps the original TypeScript source
-for reference.
-
 ---
 
 ## Inspiration
