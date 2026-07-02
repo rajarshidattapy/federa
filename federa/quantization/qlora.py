@@ -89,4 +89,8 @@ def inject_lora_adapters(module: nn.Module, rank: int = 8, alpha: float = 16.0) 
 
 def lora_parameters(module: nn.Module) -> list[nn.Parameter]:
     """Trainable adapter parameters only -- what a QLoRA client should train and send."""
-    return [param for name, param in module.named_parameters() if "lora_" in name and param.requires_grad]
+    return [
+        param
+        for name, param in module.named_parameters()
+        if "lora_" in name and param.requires_grad
+    ]

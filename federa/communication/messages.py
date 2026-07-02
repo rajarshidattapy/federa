@@ -9,13 +9,13 @@ with full validation.
 from __future__ import annotations
 
 import time
-from enum import Enum
-from typing import Annotated, Any, Literal, Union
+from enum import StrEnum
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     CLIENT_JOIN = "client_join"
     CLIENT_LEAVE = "client_leave"
     HEARTBEAT = "heartbeat"
@@ -84,13 +84,6 @@ class TrainingMetrics(BaseModel):
 
 
 Message = Annotated[
-    Union[
-        ClientJoin,
-        ClientLeave,
-        Heartbeat,
-        GlobalModel,
-        GradientUpdate,
-        TrainingMetrics,
-    ],
+    ClientJoin | ClientLeave | Heartbeat | GlobalModel | GradientUpdate | TrainingMetrics,
     Field(discriminator="type"),
 ]

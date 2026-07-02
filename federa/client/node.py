@@ -17,7 +17,7 @@ import websockets.exceptions
 from torch.utils.data import DataLoader, Dataset
 
 from federa.client.scheduler import PrivacyHook, TrainingScheduler
-from federa.client.trainer import LocalTrainer
+from federa.client.trainer import LocalTrainer, MetricFn
 from federa.client.websocket import ClientConnection
 from federa.communication.messages import ClientJoin, ClientLeave
 from federa.models.base import FederatedModel
@@ -57,6 +57,8 @@ class SwarmNode:
         *,
         client_id: str | None = None,
         settings: ClientSettings | None = None,
+        loss_fn: nn.Module | None = None,
+        metric_fn: MetricFn | None = None,
         optimizer_name: OptimizerName = "sgd",
         fedprox_mu: float = 0.0,
         device: str = "cpu",
@@ -69,6 +71,8 @@ class SwarmNode:
             model if isinstance(model, FederatedModel) else TorchModelAdapter(model)
         )
         self.dataset = dataset
+        self.loss_fn = loss_fn
+        self.metric_fn = metric_fn
         self.optimizer_name = optimizer_name
         self.fedprox_mu = fedprox_mu
         self.device = device
@@ -103,6 +107,8 @@ class SwarmNode:
         trainer = LocalTrainer(
             self.model,
             dataloader,
+            loss_fn=self.loss_fn,
+            metric_fn=self.metric_fn,
             settings=self.settings,
             optimizer_name=self.optimizer_name,
             fedprox_mu=self.fedprox_mu,
@@ -115,7 +121,9 @@ class SwarmNode:
         await channel.send(ClientJoin(client_id=self.client_id, num_samples=num_samples))
         logger.info("joined", extra={"client_id": self.client_id, "num_samples": num_samples})
 
-        scheduler = TrainingScheduler(self.client_id, channel, trainer, self.settings, self._privacy_hook)
+        scheduler = TrainingScheduler(
+            self.client_id, channel, trainer, self.settings, self._privacy_hook
+        )
         self.is_training = True
         try:
             await scheduler.run()

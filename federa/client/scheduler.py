@@ -81,6 +81,7 @@ class TrainingScheduler:
                 client_id=self.client_id,
                 round_number=message.round_number,
                 loss=result.loss,
+                accuracy=result.metric,
                 duration_seconds=result.duration_seconds,
             )
         )

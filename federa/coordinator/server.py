@@ -194,7 +194,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="federa-coordinator")
     parser.add_argument(
         "model",
-        help="Dotted path to a zero-arg callable returning an nn.Module, e.g. 'myapp.models:build_model'",
+        help=(
+            "Dotted path to a zero-arg callable returning an nn.Module, "
+            "e.g. 'myapp.models:build_model'"
+        ),
     )
     args = parser.parse_args()
 
