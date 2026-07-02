@@ -1,391 +1,234 @@
 # Federa
 
-> **Privacy-first federated learning infrastructure for Python.**
+> **Privacy-first federated learning infrastructure for PyTorch.**
 >
 > Train machine learning models across distributed devices and organizations without centralizing data.
 
-Federa is an open-source Python framework for building, orchestrating, and deploying federated learning systems at scale. Instead of shipping sensitive data to centralized GPU clusters, Federa brings training directly to where the data lives and only exchanges privacy-preserving model updates.
+Federa is an open-source Python framework for building, orchestrating, and
+deploying federated learning systems. Instead of shipping sensitive data to
+a centralized GPU cluster, Federa brings training to where the data lives
+and only ever exchanges privacy-preserving model updates.
 
-Whether you're building personalized AI systems, healthcare models, recommendation engines, or enterprise ML pipelines, Federa provides the infrastructure to train collaboratively while keeping data local.
+Federa is the full Python/PyTorch rewrite of this project's original
+TypeScript/browser prototype, [flockML](./legacy). Where flockML hand-rolled
+matrix math and backpropagation for one fixed feed-forward network, Federa
+is built on `torch.nn.Module`, autograd, and `torch.optim`, so it works with
+*any* model architecture, and drives a real asyncio/FastAPI websocket server
+instead of an in-memory mock. `legacy/` keeps the original TypeScript source
+for reference.
 
 ---
 
-# Inspiration
+## Inspiration
 
-Federa is heavily inspired by the seminal paper:
+Federa's aggregation algorithm is a direct implementation of **FedAvg**, from
+the seminal paper:
 
 **Communication-Efficient Learning of Deep Networks from Decentralized Data**
-
-Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson, and Blaise Aguera y Arcas (2017).
-
-Paper:
+Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson, and Blaise Agüera y Arcas (2017).
 
 https://proceedings.mlr.press/v54/mcmahan17a/mcmahan17a.pdf
-
-The project builds upon the ideas introduced by Federated Averaging (FedAvg) and aims to make privacy-preserving distributed machine learning accessible to every Python developer.
 
 If you use Federa in academic work, please consider citing the original paper.
 
 ---
 
-## 🌍 Why Federa?
+## Why Federa?
 
-Modern machine learning is built on two assumptions:
+Modern machine learning leans on two assumptions: massive centralized
+compute, and centralized access to user data. Both are increasingly
+expensive and hard to justify.
 
-1. Massive centralized compute clusters.
-2. Centralized access to user data.
+* 🔒 Sensitive data must otherwise be uploaded to remote servers.
+* 🌐 Data residency and compliance regulations are getting stricter.
+* 📉 Some of the most valuable datasets legally or practically can't be pooled.
 
-Both assumptions are increasingly expensive and difficult to justify in a privacy-conscious world.
+Federa's approach:
 
-### The Problems
-
-* 🔒 Sensitive user data must be uploaded to remote servers.
-* 💸 Training large models requires expensive GPU infrastructure.
-* 🌐 Data residency and compliance regulations are becoming stricter.
-* 📉 Organizations often possess valuable datasets that cannot legally or practically be shared.
-
-### The Federa Approach
-
-Federa enables:
-
-* **Local Training:** Data never leaves the device or organization.
-* **Collaborative Learning:** Multiple participants train a shared model together.
-* **Privacy Preservation:** Only model updates are communicated.
-* **Scalable Infrastructure:** Training can span thousands of clients.
+* **Local training** -- data never leaves the device or organization.
+* **Collaborative learning** -- many participants train one shared model.
+* **Privacy preservation** -- only (optionally noised, clipped, quantized) model updates are ever transmitted.
+* **Any PyTorch model** -- Federa only touches `state_dict()`, so it doesn't care what's inside.
 
 ---
 
-# ✨ Features
+## Features
 
-## 🚀 Framework Agnostic
-
-Works seamlessly with:
-
-* PyTorch
-* TensorFlow
-* JAX
-* NumPy-based custom models
+* **FedAvg / FedProx** aggregation, weighted by each client's local dataset size
+* **Differential privacy** -- Laplace and Gaussian mechanisms, gradient clipping, a privacy accountant, optional [Opacus](https://opacus.ai/) RDP accounting
+* **Quantization** -- Int8 and FP16 weight compression, plus QLoRA-ready 4-bit quantization + LoRA adapter injection hooks
+* **Typed, async, production-shaped** -- FastAPI + websockets + asyncio, Pydantic settings/messages, msgpack wire protocol, structured JSON logging, mypy-clean, unit + integration tests, Docker, CI
 
 ---
 
-## 🔒 Privacy First
-
-* Differential Privacy
-* Configurable noise mechanisms
-* Local data isolation
-* Privacy budget tracking
-
----
-
-## 📡 Federated Communication
-
-* Federated Averaging (FedAvg)
-* Asynchronous training support
-* Client sampling
-* Secure model synchronization
-
----
-
-## ⚡ Efficient Training
-
-* Gradient compression
-* Weight quantization
-* Checkpointing
-* Incremental updates
-
----
-
-## 🏢 Cross-Device & Cross-Silo Learning
-
-Train across:
-
-* Mobile devices
-* Browsers
-* Edge devices
-* Enterprises
-* Hospitals
-* Universities
-* Distributed organizations
-
----
-
-## 🧩 Extensible Architecture
-
-* Custom aggregators
-* Custom communication backends
-* Custom privacy mechanisms
-* Plugin system for new algorithms
-
----
-
-# Architecture
+## Architecture
 
 ```text
 ┌────────────────────────────────────┐
-│           Global Coordinator       │
+│           Coordinator              │
 │      Aggregation & Orchestration   │
 └────────────────────────────────────┘
                     ▲
                     │
-        Model Updates & Synchronization
+        GlobalModel / GradientUpdate
                     │
     ┌───────────────┼────────────────┐
     │               │                │
 ┌─────────┐    ┌─────────┐     ┌─────────┐
 │Client A │    │Client B │ ... │Client N │
+│SwarmNode│    │SwarmNode│     │SwarmNode│
 └─────────┘    └─────────┘     └─────────┘
       │              │               │
  Local Data      Local Data      Local Data
  (never leaves) (never leaves) (never leaves)
 ```
 
----
-
-# How It Works
-
-### 1. Global Model Initialization
-
-A coordinator initializes the global model and distributes it to participating clients.
-
-### 2. Local Training
-
-Each client trains the model on its own local dataset.
-
-### 3. Model Update Generation
-
-Only gradients or weight updates are produced.
-
-### 4. Privacy Preservation
-
-Optional privacy mechanisms are applied before transmission.
-
-### 5. Aggregation
-
-The coordinator aggregates updates using Federated Averaging (FedAvg) or custom aggregation strategies.
-
-### 6. Synchronization
-
-The updated global model is distributed back to clients.
-
-This process repeats until convergence.
+```text
+Server starts
+      |
+Clients connect (ClientJoin)
+      |
+Server broadcasts global model (GlobalModel)
+      |
+Clients train locally
+      |
+Clients send updates (GradientUpdate + TrainingMetrics)
+      |
+FedAvg aggregation
+      |
+New global model
+      |
+Repeat until `rounds` is reached, then the coordinator closes all connections
+```
 
 ---
 
-# Installation
+## Installation
 
 ```bash
 pip install federa
 ```
 
-Install with PyTorch support:
+From source, with dev tooling:
 
 ```bash
-pip install "federa[pytorch]"
+pip install -e ".[dev]"
 ```
 
-Install with TensorFlow support:
+Optional extras:
 
 ```bash
-pip install "federa[tensorflow]"
-```
-
-Install everything:
-
-```bash
-pip install "federa[all]"
+pip install "federa[privacy]"      # Opacus RDP accounting
+pip install "federa[distributed]"  # Ray, for distributed client simulation
 ```
 
 ---
 
-# Quick Start
+## Quick Start
 
-## Coordinator
+**Coordinator** (never trains -- only aggregates):
 
 ```python
 from federa import Coordinator
+from federa.models import wrap_model
+import torch.nn as nn
 
-coordinator = Coordinator(
-    host="0.0.0.0",
-    port=8000
-)
-
-coordinator.start()
+model = nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Linear(8, 1))
+Coordinator(wrap_model(model)).run()
 ```
 
----
-
-## Client
+**Client** (run on every participating device/process):
 
 ```python
-from federa import Client
+from federa import SwarmNode
 
-client = Client(
-    coordinator_url="ws://localhost:8000",
-    model=my_model,
-    dataset=my_dataset
-)
-
-client.start_training()
-```
-
----
-
-# PyTorch Example
-
-```python
-import torch
-from federa import Client
-
-model = MyModel()
-dataset = MyDataset()
-
-client = Client(
+node = SwarmNode(
+    server="ws://localhost:8000",
     model=model,
-    dataset=dataset,
-    coordinator_url="ws://localhost:8000"
+    dataset=dataset,  # any torch.utils.data.Dataset
 )
+node.start_training()
+```
 
-client.start_training()
+See `examples/mnist_fedavg/` for a complete runnable example (CNN on MNIST,
+multiple simulated clients).
+
+---
+
+## Configuration
+
+Every tunable is a `pydantic-settings` model read from environment variables
+(see `federa/utils/config.py`):
+
+```bash
+export FEDERA_COORDINATOR_MIN_CLIENTS_PER_ROUND=5
+export FEDERA_COORDINATOR_ROUNDS=50
+export FEDERA_PRIVACY_MECHANISM=gaussian   # none | laplace | gaussian
+export FEDERA_PRIVACY_EPSILON=1.0
+export FEDERA_QUANT_METHOD=int8            # none | int8 | fp16
 ```
 
 ---
 
-# TensorFlow Example
+## Supported Algorithms
 
-```python
-from federa import Client
-
-client = Client(
-    model=model,
-    dataset=dataset,
-    coordinator_url="ws://localhost:8000"
-)
-
-client.start_training()
-```
+* **FedAvg** -- the default; sample-weighted averaging of client weights.
+* **FedProx** -- FedAvg plus a proximal term during local training, for non-IID clients (`fedprox_mu` on `SwarmNode`).
+* **Custom aggregation** -- implement your own strategy against `federa.training.fedavg.ClientUpdate`.
 
 ---
 
-# Configuration
-
-```python
-client = Client(
-    model=model,
-    dataset=dataset,
-    coordinator_url="ws://localhost:8000",
-    local_epochs=5,
-    batch_size=32,
-    learning_rate=1e-3,
-    quantization=True,
-    differential_privacy=True
-)
-```
-
----
-
-# Supported Algorithms
-
-## Federated Averaging (FedAvg)
-
-The default optimization algorithm used by Federa.
-
-## Federated SGD (FedSGD)
-
-For synchronous gradient-based updates.
-
-## Personalized Federated Learning
-
-Support for local adaptation strategies.
-
-## Custom Aggregation
-
-Implement your own aggregation methods.
-
----
-
-# Project Structure
+## Project Structure
 
 ```text
 federa/
-├── client/
-│   ├── training.py
-│   ├── datasets.py
-│   └── communication.py
-│
-├── coordinator/
-│   ├── server.py
-│   ├── aggregation.py
-│   └── scheduling.py
-│
-├── aggregation/
-│   ├── fedavg.py
-│   ├── fedsgd.py
-│   └── custom.py
-│
-├── privacy/
-│   ├── differential_privacy.py
-│   ├── clipping.py
-│   └── secure_aggregation.py
-│
-├── quantization/
-│   ├── int8.py
-│   └── compression.py
-│
-├── integrations/
-│   ├── pytorch/
-│   ├── tensorflow/
-│   └── jax/
-│
-└── utils/
+├── federa/
+│   ├── client/           SwarmNode, local trainer, scheduler, websocket connection
+│   ├── coordinator/      Coordinator (FastAPI server), aggregator, routing, state
+│   ├── communication/    messages, msgpack protocol, websocket transport
+│   ├── privacy/          Laplace/Gaussian mechanisms, clipping, accountant
+│   ├── quantization/     Int8/FP16, QLoRA hooks, unified compression API
+│   ├── training/         FedAvg/FedProx, checkpointing, optimizer factory
+│   ├── models/           FederatedModel adapter for arbitrary nn.Module
+│   └── utils/            settings, structured logging, metrics
+├── examples/mnist_fedavg/
+├── tests/{unit,integration}/
+├── legacy/                original TypeScript prototype
+├── Dockerfile / docker-compose.yml
+└── pyproject.toml
 ```
 
 ---
 
-# Use Cases
+## Use Cases
 
-### 🏥 Healthcare AI
-
-Train across hospitals without sharing patient records.
-
-### 📱 Mobile Personalization
-
-Personalized recommendation systems and keyboard prediction.
-
-### 🏢 Enterprise Machine Learning
-
-Collaborative training across organizations.
-
-### 🎓 Research
-
-Federated experimentation and privacy-preserving datasets.
-
-### 🌐 Edge AI
-
-Distributed learning on IoT and edge devices.
+* 🏥 **Healthcare** -- train across hospitals without sharing patient records.
+* 📱 **Mobile personalization** -- on-device recommendation/keyboard models.
+* 🏢 **Enterprise ML** -- collaborative training across organizations.
+* 🎓 **Research** -- federated experimentation on privacy-sensitive datasets.
 
 ---
 
-# Performance Goals
+## Development
 
-* Thousands of concurrent clients
-* Minimal communication overhead
-* Low memory footprint
-* Privacy-preserving training
-* Framework-independent APIs
+```bash
+pip install -e ".[dev]"
+ruff check federa tests
+mypy federa
+pytest tests -v
+```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Starts the coordinator and two example MNIST clients (see
+`examples/README.md` for details, including how to run against real data).
 
 ---
 
-
-# Vision
-
-We believe the future of machine learning is decentralized.
-
-Data should remain where it is generated, organizations should be able to collaborate without sharing sensitive information, and developers should have access to federated learning infrastructure without building it from scratch.
-
-**Train together. Keep data local.**
-
----
-
-# License
+## License
 
 MIT License.
