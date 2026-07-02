@@ -11,7 +11,7 @@ from federa.communication.websocket import ClientWebSocketTransport, MessageChan
 from federa.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from websockets.asyncio.client import ClientConnection
+    from websockets.asyncio.client import ClientConnection as WSClientConnection
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ class ClientConnection:
         self.reconnect_backoff_seconds = reconnect_backoff_seconds
         self.max_reconnect_attempts = max_reconnect_attempts
         self._channel: MessageChannel | None = None
-        self._raw_connection: ClientConnection | None = None
+        self._raw_connection: WSClientConnection | None = None
 
     async def connect(self) -> MessageChannel:
         attempt = 0

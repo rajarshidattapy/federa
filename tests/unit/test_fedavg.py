@@ -53,4 +53,4 @@ def test_fedprox_proximal_term_matches_closed_form():
     local = [torch.nn.Parameter(torch.tensor([1.0, 1.0]))]
     global_weights = [torch.tensor([0.0, 0.0])]
     term = fedprox_proximal_term(local, global_weights, mu=1.0)
-    assert float(term) == pytest.approx(1.0)  # (1/2) * (1^2 + 1^2) = 1.0
+    assert float(term.detach()) == pytest.approx(1.0)  # (1/2) * (1^2 + 1^2) = 1.0
