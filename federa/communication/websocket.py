@@ -16,13 +16,14 @@ from federa.communication.protocol import decode_message, encode_message
 
 if TYPE_CHECKING:
     from starlette.websockets import WebSocket
-    from websockets.legacy.client import WebSocketClientProtocol
+    from websockets.asyncio.client import ClientConnection
 
 
 @runtime_checkable
 class RawTransport(Protocol):
     async def send_raw(self, data: bytes) -> None: ...
     async def receive_raw(self) -> bytes: ...
+    async def close_raw(self) -> None: ...
 
 
 class StarletteWebSocketTransport:
@@ -38,11 +39,14 @@ class StarletteWebSocketTransport:
         data: bytes = await self._websocket.receive_bytes()
         return data
 
+    async def close_raw(self) -> None:
+        await self._websocket.close()
+
 
 class ClientWebSocketTransport:
     """Adapts a `websockets` client connection to `RawTransport`."""
 
-    def __init__(self, connection: WebSocketClientProtocol) -> None:
+    def __init__(self, connection: ClientConnection) -> None:
         self._connection = connection
 
     async def send_raw(self, data: bytes) -> None:
@@ -53,6 +57,9 @@ class ClientWebSocketTransport:
         if isinstance(data, str):
             return data.encode()
         return bytes(data)
+
+    async def close_raw(self) -> None:
+        await self._connection.close()
 
 
 class MessageChannel:
@@ -67,3 +74,6 @@ class MessageChannel:
     async def receive(self) -> Message:
         raw = await self._transport.receive_raw()
         return decode_message(raw)
+
+    async def close(self) -> None:
+        await self._transport.close_raw()
